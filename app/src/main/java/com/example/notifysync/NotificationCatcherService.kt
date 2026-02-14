@@ -14,12 +14,13 @@ class NotificationCatcherService : NotificationListenerService() {
 
         val sharedPref = getSharedPreferences("AppMode", Context.MODE_PRIVATE)
         val isSender = sharedPref.getBoolean("isSender", false)
+        val dbUrl = sharedPref.getString("firebaseUrl", "")
 
-        if (!isSender || sbn == null) return
+        // Stop if not sender, notification is null, or URL is missing
+        if (!isSender || sbn == null || dbUrl.isNullOrEmpty()) return
 
         val packageName = sbn.packageName
 
-        // 1. Define keywords that match standard Android Phone and SMS apps
         val allowedKeywords = listOf(
             "messaging",
             "mms",
@@ -29,10 +30,8 @@ class NotificationCatcherService : NotificationListenerService() {
             "incallui"
         )
 
-        // 2. Check if the app that posted the notification matches our allowed list
         val isPhoneOrSms = allowedKeywords.any { packageName.contains(it, ignoreCase = true) }
 
-        // If it is not a phone or SMS app, stop right here and ignore it
         if (!isPhoneOrSms) return
 
         val extras = sbn.notification.extras
@@ -42,7 +41,8 @@ class NotificationCatcherService : NotificationListenerService() {
         if (title != null && text != null) {
             Log.d("NotifySync", "Caught: App=$packageName, Title=$title, Text=$text")
 
-            val database = FirebaseDatabase.getInstance("https://notifysync727-default-rtdb.asia-southeast1.firebasedatabase.app/").reference
+            // Use the dynamic URL
+            val database = FirebaseDatabase.getInstance(dbUrl).reference
 
             val notificationData = mapOf(
                 "appName" to packageName,

@@ -17,7 +17,6 @@ import com.google.firebase.database.ValueEventListener
 class ReceiverService : Service() {
 
     private val channelId = "NotifySyncChannel"
-    // We use this flag so the app does not instantly show the last saved notification when you open it
     private var isFirstLoad = true
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -31,8 +30,16 @@ class ReceiverService : Service() {
     }
 
     private fun listenToFirebase() {
-        // Using your exact regional database URL
-        val database = FirebaseDatabase.getInstance("https://notifysync727-default-rtdb.asia-southeast1.firebasedatabase.app/").reference
+        val sharedPref = getSharedPreferences("AppMode", Context.MODE_PRIVATE)
+        val dbUrl = sharedPref.getString("firebaseUrl", "")
+
+        if (dbUrl.isNullOrEmpty()) {
+            Log.e("NotifySync", "Cannot start Receiver: Firebase URL is empty")
+            return
+        }
+
+        // Use the dynamic URL
+        val database = FirebaseDatabase.getInstance(dbUrl).reference
         val notificationRef = database.child("latest_notification")
 
         notificationRef.addValueEventListener(object : ValueEventListener {
@@ -62,19 +69,17 @@ class ReceiverService : Service() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         val notification = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_info) // Basic Android info icon
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("Forwarded: $title")
             .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .build()
 
-        // We use the current time as an ID so multiple notifications do not overwrite each other
         notificationManager.notify(System.currentTimeMillis().toInt(), notification)
     }
 
     private fun createNotificationChannel() {
-        // Android 8.0 and above require a "Channel" to display notifications
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val name = "Synced Notifications"
             val descriptionText = "Notifications received from the sender device"

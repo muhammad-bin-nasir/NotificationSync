@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -18,13 +19,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // This is where we save our Sender/Receiver choice
         val sharedPref = getSharedPreferences("AppMode", Context.MODE_PRIVATE)
         val isSenderInitial = sharedPref.getBoolean("isSender", false)
+        val savedFirebaseUrl = sharedPref.getString("firebaseUrl", "") ?: ""
 
-        // Ensure the receiver service is running if the app is opened in Receiver mode
         val receiverIntent = Intent(this, ReceiverService::class.java)
-        if (!isSenderInitial) {
+        if (!isSenderInitial && savedFirebaseUrl.isNotEmpty()) {
             startService(receiverIntent)
         }
 
@@ -36,21 +36,26 @@ class MainActivity : ComponentActivity() {
                 ) {
                     AppModeToggle(
                         initialMode = isSenderInitial,
+                        initialUrl = savedFirebaseUrl,
                         onModeChanged = { isSender ->
-                            // Save the new state when the user flips the switch
                             sharedPref.edit().putBoolean("isSender", isSender).apply()
 
-                            // Logic to start/stop the background services
                             if (isSender) {
-                                // If turning ON Sender mode, stop the Receiver service
                                 stopService(receiverIntent)
                             } else {
-                                // If turning ON Receiver mode, start the Receiver service
-                                startService(receiverIntent)
+                                val currentUrl = sharedPref.getString("firebaseUrl", "")
+                                if (!currentUrl.isNullOrEmpty()) {
+                                    startService(receiverIntent)
+                                } else {
+                                    Toast.makeText(this@MainActivity, "Please save a Firebase URL first!", Toast.LENGTH_SHORT).show()
+                                }
                             }
                         },
+                        onUrlSaved = { newUrl ->
+                            sharedPref.edit().putString("firebaseUrl", newUrl).apply()
+                            Toast.makeText(this@MainActivity, "Database URL Saved!", Toast.LENGTH_SHORT).show()
+                        },
                         onRequestPermissions = {
-                            // This opens the specific Android settings page to allow notification reading
                             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                         }
                     )
@@ -63,17 +68,44 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppModeToggle(
     initialMode: Boolean,
+    initialUrl: String,
     onModeChanged: (Boolean) -> Unit,
+    onUrlSaved: (String) -> Unit,
     onRequestPermissions: () -> Unit
 ) {
-    // This variable remembers the switch position on the screen
     var isSender by remember { mutableStateOf(initialMode) }
+    var firebaseUrl by remember { mutableStateOf(initialUrl) }
 
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Firebase Configuration Section
+        Text("Database Setup", style = MaterialTheme.typography.titleLarge)
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedTextField(
+            value = firebaseUrl,
+            onValueChange = { firebaseUrl = it },
+            label = { Text("Paste Firebase RTDB URL") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Button(onClick = { onUrlSaved(firebaseUrl) }) {
+            Text("Save URL")
+        }
+
+        Spacer(modifier = Modifier.height(48.dp))
+        HorizontalDivider()
+        Spacer(modifier = Modifier.height(48.dp))
+
+        // Toggle Section
         Text(
             text = if (isSender) "Current Mode: SENDER" else "Current Mode: RECEIVER",
             style = MaterialTheme.typography.headlineMedium
@@ -91,7 +123,6 @@ fun AppModeToggle(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // If in Sender mode, show the button to grant system permissions
         if (isSender) {
             Button(onClick = onRequestPermissions) {
                 Text("Grant Notification Access")
@@ -104,8 +135,7 @@ fun AppModeToggle(
             Text(
                 text = "Note: If this device is on Android 13 or higher, ensure you manually allow Notifications for this app in your Android Settings.",
                 style = MaterialTheme.typography.bodySmall,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 32.dp)
+                textAlign = TextAlign.Center
             )
         }
     }
