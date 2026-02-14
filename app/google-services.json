@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1039330973121",
+    "project_id": "notifysync727",
+    "storage_bucket": "notifysync727.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1039330973121:android:bb677f2d49b1efd96e8b40",
+        "android_client_info": {
+          "package_name": "com.example.notifysync"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDVnRzSdllmJQksgPvY1vSAo2q6Wa3UaNs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
