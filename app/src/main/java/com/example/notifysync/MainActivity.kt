@@ -1,12 +1,16 @@
 package com.example.notifysync
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,7 +29,11 @@ class MainActivity : ComponentActivity() {
 
         val receiverIntent = Intent(this, ReceiverService::class.java)
         if (!isSenderInitial && savedFirebaseUrl.isNotEmpty()) {
-            startService(receiverIntent)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(receiverIntent)
+            } else {
+                startService(receiverIntent)
+            }
         }
 
         setContent {
@@ -45,7 +53,11 @@ class MainActivity : ComponentActivity() {
                             } else {
                                 val currentUrl = sharedPref.getString("firebaseUrl", "")
                                 if (!currentUrl.isNullOrEmpty()) {
-                                    startService(receiverIntent)
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                        startForegroundService(receiverIntent)
+                                    } else {
+                                        startService(receiverIntent)
+                                    }
                                 } else {
                                     Toast.makeText(this@MainActivity, "Please save a Firebase URL first!", Toast.LENGTH_SHORT).show()
                                 }
@@ -76,6 +88,14 @@ fun AppModeToggle(
     var isSender by remember { mutableStateOf(initialMode) }
     var firebaseUrl by remember { mutableStateOf(initialUrl) }
 
+    val requestPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            // Permission granted, the notification will now show
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -83,7 +103,6 @@ fun AppModeToggle(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Firebase Configuration Section
         Text("Database Setup", style = MaterialTheme.typography.titleLarge)
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -105,7 +124,6 @@ fun AppModeToggle(
         HorizontalDivider()
         Spacer(modifier = Modifier.height(48.dp))
 
-        // Toggle Section
         Text(
             text = if (isSender) "Current Mode: SENDER" else "Current Mode: RECEIVER",
             style = MaterialTheme.typography.headlineMedium
@@ -130,10 +148,18 @@ fun AppModeToggle(
             Spacer(modifier = Modifier.height(8.dp))
             Text("This device will capture and send notifications.")
         } else {
-            Text("This device will wait to receive notifications.")
+            Button(onClick = {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }) {
+                Text("Force Notification Permission")
+            }
             Spacer(modifier = Modifier.height(16.dp))
+            Text("This device will wait to receive notifications.")
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Note: If this device is on Android 13 or higher, ensure you manually allow Notifications for this app in your Android Settings.",
+                text = "Tap the button above to allow the foreground notification to show.",
                 style = MaterialTheme.typography.bodySmall,
                 textAlign = TextAlign.Center
             )

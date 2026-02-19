@@ -16,7 +16,6 @@ class NotificationCatcherService : NotificationListenerService() {
         val isSender = sharedPref.getBoolean("isSender", false)
         val dbUrl = sharedPref.getString("firebaseUrl", "")
 
-        // Stop if not sender, notification is null, or URL is missing
         if (!isSender || sbn == null || dbUrl.isNullOrEmpty()) return
 
         val packageName = sbn.packageName
@@ -41,7 +40,6 @@ class NotificationCatcherService : NotificationListenerService() {
         if (title != null && text != null) {
             Log.d("NotifySync", "Caught: App=$packageName, Title=$title, Text=$text")
 
-            // Use the dynamic URL
             val database = FirebaseDatabase.getInstance(dbUrl).reference
 
             val notificationData = mapOf(
